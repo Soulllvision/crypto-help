@@ -1,0 +1,79 @@
+import os
+from web3 import Web3
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# подключаемся к сети Arbitrum
+w3 = Web3(Web3.HTTPProvider(os.getenv('WEB3_PROVIDER_URL')))
+
+# адрес контракта
+contract_address = Web3.toChecksumAddress(
+    '0x67a24ce4321ab3af51c2d0a4801c3e111d88c9d9')
+
+# аби-интерфейс контракта
+contract_abi = [
+    {
+        "inputs": [],
+        "name": "claimTokens",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [],
+        "name": "tokenBalance",
+        "outputs": [
+            {
+                "internalType": "uint256",
+                "name": "",
+                "type": "uint256"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    }
+]
+
+# создаем экземпляр контракта
+contract = w3.eth.contract(address=contract_address, abi=contract_abi)
+
+# адрес биржи, на который будут отправлены токены после клейма
+exchange_address = Web3.toChecksumAddress(
+    '0x0000000000000000000000000000000000000000')
+
+# адрес кошелька, с которого будет производиться клейминг токенов
+wallet_address = Web3.toChecksumAddress(os.getenv('WALLET_ADDRESS'))
+
+# приватный ключ кошелька, с которого будет производиться клейминг токенов
+wallet_private_key = os.getenv('WALLET_PRIVATE_KEY')
+
+# газ-лимит для транзакции
+gas_limit = 300000
+
+# функция для автоматического определения цены за газ
+def get_gas_price():
+    # получаем текущую цену за газ с помощью API провайдера
+    gas_price = w3.eth.gas_price
+    # устанавливаем цену за газ в 1.5 раза выше текущей средней цены
+    return int(gas_price * 1.5)
+
+# клеймим токены и отправляем их на адрес биржи
+def claim_and_send_tokens():
+    # получаем баланс токенов на контракте
+    token_balance = contract.functions.tokenBalance().call()
+    # если баланс равен 0, то выводим сообщение и завершаем выполнение функции
+    if token_balance == 0:
+        print('Token balance is 0, nothing to claim.')
+        return
+    # создаем транзакцию для клейма токенов
+    tx = contract.functions.claimTokens().buildTransaction({
+        'from': wallet_address,
+        'nonce': w3.eth.getTransactionCount(wallet_address),
+        'gas': gas_limit,
+        'gasPrice': get_gas_price()
+    })
+    # подписываем транзакцию с помощью приватного ключа
+    signed_tx = w3.eth.account.sign_transaction(tx, private_key=wallet_private_key)
+    # отправляем транзакцию на сеть
+    tx_hash =
